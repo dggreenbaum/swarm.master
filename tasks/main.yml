@@ -1,0 +1,19 @@
+- name: Start the swarm manager
+  docker:
+    name: swarm_manager
+    image: swarm
+    command: manage consul://{{ hostvars[groups['kv'][0]]['ansible_' + docker_adapter]['ipv4']['address'] }}:8500/
+    state: started
+    ports:
+    - "3375:2375"
+
+# Make sure we don't attempt to set up the overlay twice.
+- name: Check swarm overlay networking
+  shell: docker -H=tcp://{{ hostvars[inventory_hostname]['ansible_' + docker_adapter]['ipv4']['address'] }}:3375 network ls
+  register: swarmOverlayNet
+  changed_when: false
+
+- name: Set up overlay network
+  shell: docker -H=tcp://{{ hostvars[inventory_hostname]['ansible_' + docker_adapter]['ipv4']['address'] }}:3375 network create -d overlay {{ overlay_name }}
+  run_once: true
+  when: swarmOverlayNet.stdout.find(overlay_name) < 1
